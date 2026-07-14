@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESG 桌遊計分板</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --success: #27ae60;
+            --danger: #c0392b;
+            --warning: #f39c12;
+            --light: #f8f9fa;
+        }
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            margin: 0;
+            padding: 15px;
+            color: #333;
+        }
+        .container { width: 98%; margin: 0 auto; max-width: 1600px; }
+        header { text-align: center; margin-bottom: 15px; }
+        h1 { color: var(--primary); margin: 0 0 5px 0; font-size: 1.8rem; }
+        
+        .panel-box {
+            background: #34495e; color: white; padding: 15px; border-radius: 12px;
+            margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        .panel-box h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: #f1c40f; }
+        .wrapper-row { display: flex; gap: 10px; align-items: center; }
+        .select-custom { flex: 1; padding: 10px; font-size: 1rem; border-radius: 6px; border: none; font-weight: bold; }
+        .btn-go { background: var(--success); color: white; border: none; padding: 10px 20px; font-size: 1rem; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        .btn-go:hover { background: #219653; }
+        .btn-build { background: #3498db; }
+        .btn-build:hover { background: #2980b9; }
+
+        .flex-board {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        .player-card {
+            flex: 1; min-width: 0;
+            background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 15px; border-top: 8px solid var(--primary); display: flex;
+            flex-direction: column; justify-content: space-between;
+        }
+        .player-card.eliminated { background: #ffebee; border-top-color: var(--danger); opacity: 0.6; }
+        
+        .player-header { margin-bottom: 12px; }
+        .player-name { font-size: 1.25rem; font-weight: bold; border-bottom: 2px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; text-align: center; }
+        .select-job { font-size: 0.95rem; padding: 5px; border-radius: 5px; border: 1px solid #ccc; width: 100%; background: #fff; font-weight: bold; color: var(--primary); text-align: center; }
+        
+        .score-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 8px 10px; background: var(--light); border-radius: 6px; }
+        .score-label { font-weight: bold; font-size: 0.95rem; display: flex; align-items: center; }
+        
+        .counter { display: flex; align-items: center; gap: 8px; }
+        .btn { background: #ddd; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; }
+        .btn:hover { background: #bbb; }
+        .btn-plus { background: #bdf; }
+        .val { font-size: 1.2rem; font-weight: bold; width: 28px; text-align: center; }
+        
+        .status-badge { font-size: 0.8rem; padding: 5px; border-radius: 6px; text-align: center; margin-top: 8px; font-weight: bold; }
+        .status-ok { background: #e8f5e9; color: var(--success); }
+        .status-warn { background: #ffe0b2; color: var(--warning); }
+
+        .footer-panel {
+            background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;
+        }
+        .monitor-stats { display: flex; gap: 15px; flex-wrap: wrap; }
+        .stat-item { font-size: 0.95rem; font-weight: bold; background: var(--light); padding: 8px 15px; border-radius: 8px; border-left: 5px solid var(--primary); }
+        .stat-item span { color: var(--danger); font-size: 1.15rem; margin-left: 5px; }
+        
+        .control-btns { display: flex; gap: 10px; }
+        .btn-action { background: var(--primary); color: white; border: none; padding: 10px 20px; font-size: 0.95rem; font-weight: bold; border-radius: 8px; cursor: pointer; }
+        .btn-action:hover { background: #1a252f; }
+        .btn-calc { background: var(--danger); }
+        .btn-calc:hover { background: #c0392b; }
+        .btn-reset { background: #7f8c8d; }
+        .btn-reset:hover { background: #95a5a6; }
+        
+        #resultModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; max-width: 550px; width: 90%; }
+        .close-modal { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 15px; font-size: 1rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🌍 ESG 永續計分板</h1>
+    </header>
+
+    <!-- 1. 事件卡面板 -->
+    <div class="panel-box">
+        <h2>🃏 事件卡</h2>
+        <div class="wrapper-row">
+            <select id="eventSelector" class="select-custom">
+                <optgroup label="🌱 E 環境 ">
+                    <option value="E1">E1 全球碳稅上路 [製造/能源業: E-1, 污染+1] (能源業綠電+1)</option>
+                    <option value="E2">E2 極端氣候災害 [能源業: E-1, 污染+1] [全體污染標記+1] (能源業綠電+1)</option>
+                    <option value="E3">E3 綠能補助計畫 [製造/科技業: E+1] [能源業: E+2] (全產業資金+1)</option>
+                    <option value="E4">E4 海洋塑膠危機 [製造業: E+1]</option>
+                    <option value="E5">E5 生物多樣性公約 [製造業: E-1, 污染+1]</option>
+                    <option value="E6">E6 廢棄物循環技術 [能源/科技業: E+1] [製造業: E+2] (製造業技術+1，有永續營運部門的玩家汙染標記+1)</option>
+                    <option value="E7">E7 ESG投資熱潮 [製造/能源/科技/金融業: E+1] (全產資金+1)</option>
+                    <option value="E8">E8 亞馬遜雨林基金 [能源/金融業: E+1] (能源/金融業資金+1)</option>
+                    <option value="E9">E9 全球塑膠公約 [能源業: E-1, 污染+1] [製造業: E+1] (製造業技術+1)</option>
+                    <option value="E10">E10 非法傾倒廢棄物 [科技業: E-1, 污染+1] [製造業: E-2, 污染+1] [全體汙染標記+1]</option>
+                    <option value="E11">E11 國際環保稽查 (自動比較：全場污染最低者 E+2[自然點數+1]，最高者 E-2)</option>
+                </optgroup>
+                <optgroup label="🤝 S 社會">
+                    <option value="S1">S1 勞工罷工潮 [能源業: S-1] [製造業: S-2]</option>
+                    <option value="S2">S2 個資外洩事件 [科技/金融業: S-2]</option>
+                    <option value="S3">S3 公平貿易認證 [能源業: S+1] [製造業: S+2] (製造業人才+1)</option>
+                    <option value="S4">S4 智慧製造與尊嚴勞動 [科技/製造業: S+1]</option>
+                    <option value="S5">S5 童工醜聞 [製造業: S-1]</option>
+                    <option value="S6">S6 彈性遠距工作制度 [科技/金融業: S+1] (科技/金融業人才+1)</option>
+                    <option value="S7">S7 職場壓力心理諮商 [科技/金融業: S+1]</option>
+                    <option value="S8">S8 全球公共衛生危機 [能源/製造業: S-1] [科技業: S+1] (科技業技術+1)</option>
+                    <option value="S9">S9 性別平權政策 [所有玩家可支付1人才: 有支付者 S+2]</option>
+                    <option value="S10">S10 員工家庭友善政策 [所有玩家可支付1資金: 有支付者 S+2]</option>
+                    <option value="S11">S11 全球公益合作計畫 [所有玩家可支付1資金: 有支付者 S+2]</option>
+                </optgroup>
+                <optgroup label="⚖️ G 治理">
+                    <option value="G1">G1 跨國專利保護 [製造/能源/科技業: G+1] (能源/科技業技術+1)</option>
+                    <option value="G2">G2 財務報表透明化 [製造/能源業: G-1] [金融業: G+1] (金融業資金+1)</option>
+                    <option value="G3">G3 導入AI稽核系統 [製造/金融/科技業: G+1] (科技業技術+1)</option>
+                    <option value="G4">G4 內線交易調查 [製造業: G-1] [金融/科技: G-2]</option>
+                    <option value="G5">G5 海外逃稅爭議 [金融業: G-1] [科技業: G-2]</option>
+                    <option value="G6">G6 供應鏈透明化 [製造業: G+1] [金融業: G+1] (金融業資金+1)</option>
+                    <option value="G7">G7 歐盟AI法案合規認證 [金融/科技業: G+1]</option>
+                    <option value="G8">G8 友岸外包 [能源/科技/製造業: G+1] (製造業人才+1)</option>
+                    <option value="G9">G9 核心技術外洩 [製造/金融業: G-1] [科技業: G-2]</option>
+                    <option value="G10">G10 董事會透明改革 [所有玩家可支付1人才: 有支付者 G+2]</option>
+                    <option value="G11">G11 永續治理典範企業 [自動判定：若 E、S、G 皆至少 2 分者: G+1]</option>
+                </optgroup>
+            </select>
+            <button class="btn-go" onclick="triggerEvent()">確定</button>
+        </div>
+    </div>
+
+    <!-- 2. 建設快速結算面板 -->
+    <div class="panel-box" style="background: #2c3e50;">
+        <h2>🏗️ 建設</h2>
+        <div class="wrapper-row">
+            <select id="buildSelector" class="select-custom">
+                <option value="HQ">區域總部 [S+1, G+2, 影響力標記+1] (成本:技術2, 資金3)</option>
+                <option value="TRAD">傳統營運部門 [汙染標記+1, 影響力標記+2] (成本:洞察卡1)</option>
+                <option value="SUST">永續營運部門 [E+1, G+2, 影響力標記+1] (成本:洞察2, 自然點數1, 綠電1)</option>
+                <option value="TALENT_ZONE">東南亞人才孵化區蓋建設 [當回合 S 分數 +1]</option>
+            </select>
+            <button class="btn-go btn-build" id="actionBtn" onclick="triggerAction()">確定</button>
+        </div>
+    </div>
+
+    <!-- 3. 4人平行看板 -->
+    <div class="flex-board" id="playersGrid"></div>
+
+    <!-- 4. 底部統計監控 -->
+    <div class="footer-panel">
+        <div class="monitor-stats">
+            <div class="stat-item">全場污染標記總值：<span id="globalTotalPollution">0 點</span></div>
+            <div class="stat-item">當前每回合 ESG 骰子應骰：<span id="globalDiceCount" style="color:var(--warning)">1 次</span></div>
+            <div class="stat-item">已達成規定的豁免企業有：<span id="globalExemptCount" style="color:var(--success)">0 家</span></div>
+        </div>
+        <div class="control-btns">
+            <button class="btn-action btn-calc" onclick="calculateEndGame()">💥 遊戲結束（一鍵計算勝負）</button>
+            <button class="btn-action btn-reset" onclick="resetGame()">🔄 重新開始</button>
+        </div>
+    </div>
+</div>
+
+<div id="resultModal">
+    <div class="modal-content">
+        <h2 style="text-align:center; color:var(--primary);">📊 綜合結算報告</h2>
+        <div id="resultBody" style="text-align: left; margin: 20px 0; line-height: 1.6; max-height: 400px; overflow-y: auto;"></div>
+        <button class="close-modal" onclick="closeModal()">確認並關閉</button>
+    </div>
+</div>
+
+<script>
+const jobs = ["金融業", "能源業", "製造業", "科技業"];
+let players = JSON.parse(localStorage.getItem('esg_ultimate_players_v8')) || [
+    { id: 1, name: "玩家 1", job: "金融業", e: 0, s: 0, g: 0, pollution: 0, impact: 0, eliminated: false, hasSust: false },
+    { id: 2, name: "玩家 2", job: "能源業", e: 0, s: 0, g: 0, pollution: 0, impact: 0, eliminated: false, hasSust: false },
+    { id: 3, name: "玩家 3", job: "製造業", e: 0, s: 0, g: 0, pollution: 0, impact: 0, eliminated: false, hasSust: false },
+    { id: 4, name: "玩家 4", job: "科技業", e: 0, s: 0, g: 0, pollution: 0, impact: 0, eliminated: false, hasSust: false }
+];
+
+let pollutionAlertTriggered = false;
+let gameEnded = false;
+
+function render() {
+    const grid = document.getElementById('playersGrid');
+    grid.innerHTML = '';
+    
+    let totalPollution = 0;
+    let maxPollutionVal = 0;
+    let exemptCount = 0;
+
+    players.forEach(p => {
+        totalPollution += p.pollution;
+        if (p.pollution > maxPollutionVal) maxPollutionVal = p.pollution;
+        if (p.e >= 1 && p.s >= 1 && p.g >= 1) exemptCount++;
+    });
+
+    if (totalPollution >= 13 && !pollutionAlertTriggered && !gameEnded) {
+        pollutionAlertTriggered = true;
+        let targetNames = [];
+        players.forEach(p => {
+            if (p.pollution === maxPollutionVal && maxPollutionVal > 0) {
+                p.eliminated = true;
+                targetNames.push(p.name);
+            }
+        });
+        alert(`🚨 【污染警報：環境重大崩壞】\n全場污染總值已達 ${totalPollution} 點（超過 13 點門檻）！\n污染最重的玩家：[${targetNames.join(", ")}] 遭到強制淘汰！`);
+    } else if (totalPollution < 13) {
+        pollutionAlertTriggered = false;
+    }
+
+    players.forEach((p, idx) => {
+        const hasExemption = (p.e >= 1 && p.s >= 1 && p.g >= 1);
+        const statusText = hasExemption ? "🟢 已達【豁免】資格" : "🔴 未達豁免 (指標有0)";
+        let jobOptions = jobs.map(j => `<option value="${j}" ${p.job === j ? 'selected' : ''}>${j}</option>`).join('');
+
+        const card = document.createElement('div');
+        card.className = `player-card ${p.eliminated ? 'eliminated' : ''}`;
+        card.innerHTML = `
+            <div class="player-header">
+                <div class="player-name" contenteditable="true" onblur="updateName(${idx}, this.innerText)">${p.name}</div>
+                <select class="select-job" onchange="updateJob(${idx}, this.value)">${jobOptions}</select>
+            </div>
+            
+            <div class="score-row"><span class="score-label">🌱 環境 (E)</span><div class="counter"><button class="btn" onclick="changeScore(${idx}, 'e', -1)">-</button><span class="val">${p.e}</span><button class="btn btn-plus" onclick="changeScore(${idx}, 'e', 1)">+</button></div></div>
+            <div class="score-row"><span class="score-label">🤝 社會 (S)</span><div class="counter"><button class="btn" onclick="changeScore(${idx}, 's', -1)">-</button><span class="val">${p.s}</span><button class="btn btn-plus" onclick="changeScore(${idx}, 's', 1)">+</button></div></div>
+            <div class="score-row"><span class="score-label">⚖️ 治理 (G)</span><div class="counter"><button class="btn" onclick="changeScore(${idx}, 'g', -1)">-</button><span class="val">${p.g}</span><button class="btn btn-plus" onclick="changeScore(${idx}, 'g', 1)">+</button></div></div>
+            
+            <div class="score-row" style="background:${p.pollution >= 10 ? '#ffcdd2' : '#eceff1'}"><span class="score-label">⚠️ 污染標記</span><div class="counter"><button class="btn" onclick="changeScore(${idx}, 'pollution', -1)">-</button><span class="val">${p.pollution}</span><button class="btn btn-plus" onclick="changeScore(${idx}, 'pollution', 1)">+</button></div></div>
+            <div class="score-row" style="background:#fff9c4"><span class="score-label">🏆 影響力標記</span><div class="counter"><button class="btn" onclick="changeScore(${idx}, 'impact', -1)">-</button><span class="val">${p.impact}</span><button class="btn btn-plus" onclick="changeScore(${idx}, 'impact', 1)">+</button></div></div>
+            
+            <div class="status-badge ${hasExemption ? 'status-ok' : 'status-warn'}">${statusText}</div>
+        `;
+        grid.appendChild(card);
+    });
+
+    document.getElementById('globalTotalPollution').innerText = `${totalPollution} 點`;
+    document.getElementById('globalExemptCount').innerText = `${exemptCount} 家`;
+    
+    let diceText = "1 次";
+    if (totalPollution >= 6 && totalPollution <= 12) { diceText = "2 次"; }
+    else if (totalPollution >= 13) { diceText = "2 次 + 淘汰機制啟動"; }
+    document.getElementById('globalDiceCount').innerText = diceText;
+
+    localStorage.setItem('esg_ultimate_players_v8', JSON.stringify(players));
+}
+
+function changeScore(idx, type, amount) {
+    if (gameEnded) return;
+
+    players[idx][type] += amount;
+    
+    if(players[idx].pollution < 0) players[idx].pollution = 0;
+    if(players[idx].impact < 0) players[idx].impact = 0;
+    
+    if(type === 'impact' && players[idx].impact >= 7) {
+        gameEnded = true;
+        alert(`🏆 【遊戲結束：影響力達標獲勝】\n恭喜 ${players[idx].name} 成功獲得 7 個影響力標記！贏得本場勝利！`);
+    }
+    render();
+}
+
+function updateName(idx, newName) { players[idx].name = newName; render(); }
+function updateJob(idx, newJob) { players[idx].job = newJob; render(); }
+
+function triggerAction() {
+    if (gameEnded) return;
+    const actionType = document.getElementById('buildSelector').value;
+    
+    let optionsText = players.map((p, i) => `${i + 1}: ${p.name} (${p.job})`).join("\n");
+    let choice = prompt(`請選擇要對哪位玩家執行該動作（輸入數字 1 ~ 4）:\n\n${optionsText}`);
+    
+    if (choice && choice >= 1 && choice <= 4) {
+        let pIdx = choice - 1;
+        let pName = players[pIdx].name;
+        
+        switch(actionType) {
+            case "HQ":
+                players[pIdx].s += 1;
+                players[pIdx].g += 2;
+                players[pIdx].impact += 1;
+                alert(`${pName} 升級了「區域總部」！\nS +1, G +2, 影響力 +1`);
+                break;
+            case "TRAD":
+                players[pIdx].pollution += 1;
+                players[pIdx].impact += 2;
+                alert(`${pName} 興建了「傳統營運部門」！\n個人污染 +1, 影響力標記 +2`);
+                break;
+            case "SUST":
+                players[pIdx].e += 1;
+                players[pIdx].g += 2;
+                players[pIdx].impact += 1;
+                players[pIdx].hasSust = true;
+                alert(`${pName} 興建了「永續營運部門」！\nE +1, G +2, 影響力標記 +1`);
+                break;
+            case "TALENT_ZONE":
+                players[pIdx].s += 1;
+                alert(`${pName} 在「東南亞人才孵化區」進行了建設，獲得當回合 S +1 分！`);
+                break;
+        }
+        
+        if (players[pIdx].impact >= 7) {
+            gameEnded = true;
+            alert(`🏆 【遊戲結束：影響力達標獲勝】\n恭喜 ${pName} 影響力達到 7 分，直接贏得勝利！`);
+        }
+        
+        render();
+    } else if (choice) {
+        alert("❌ 輸入錯誤！請重新輸入 1 至 4 的數字。");
+    }
+}
+
+function triggerEvent() {
+    if (gameEnded) return;
+    const eventId = document.getElementById('eventSelector').value;
+    let alertMsg = "";
+    
+    if(eventId === "E11") {
+        let pollutions = players.map(p => p.pollution);
+        let minP = Math.min(...pollutions);
+        let maxP = Math.max(...pollutions);
+        if(minP === maxP) { alert("⚖️ 所有人污染值相同，E11 無效果。"); return; }
+        players.forEach(p => {
+            if(p.pollution === minP) { p.e += 2; alertMsg += `🎉 ${p.name} 污染最低，E+2！(請實體拿取 1 張自然點數資源卡)\n`; }
+            if(p.pollution === maxP) { p.e -= 2; alertMsg += `💀 ${p.name} 污染最高，E-2！\n`; }
+        });
+        alert(`✨ 執行 E11 國際環保稽查成功！\n${alertMsg}`);
+        render(); return;
+    }
+
+    if(["S9", "S10", "S11", "G10"].includes(eventId)) {
+        let optionsText = players.map((p, i) => `${i + 1}: ${p.name} (${p.job})`).join("\n");
+        let choice = prompt(`🃏 互動事件結算：\n請輸入有支付相應資源(人才/資金)的玩家編號（例如輸入 1 代表玩家1，若多人支付請分次執行，無人支付請按取消）:\n\n${optionsText}`);
+        if (choice && choice >= 1 && choice <= 4) {
+            let target = players[choice - 1];
+            if(["S9", "S10", "S11"].includes(eventId)) target.s += 2;
+            if(eventId === "G10") target.g += 2;
+            alert(`✨ 已幫 ${target.name} 分數 +2！`);
+            render();
+        }
+        return;
+    }
+
+    if(eventId === "G11") {
+        let count = 0;
+        players.forEach(p => {
+            if (p.e >= 2 && p.s >= 2 && p.g >= 2) { p.g += 1; count++; }
+        });
+        alert(`✨ 執行 G11 判定成功！全場共有 ${count} 位玩家符合「E、S、G 皆至少 2 分」的門檻，已自動幫他們 G +1 分。`);
+        render(); return;
+    }
+    
+    let globalPollutionIncrease = false;
+
+    players.forEach((p) => {
+        if(p.job === "未選擇" || p.eliminated) return;
+        switch(eventId) {
+            case "E1":
+                if(p.job === "製造業") { p.e -= 1; p.pollution += 1; }
+                if(p.job === "能源業") { p.e -= 1; p.pollution += 1; alert(`📢 提示：請發1張綠電卡給 ${p.name} (能源業)！`); }
+                break
+            case "E2":
+                if(p.job === "能源業") { p.e -= 1; p.pollution += 1; alert(`📢 提示：請發1張綠電卡給 ${p.name} (能源業)！`); }
+                globalPollutionIncrease = true;
+                break;
+            case "E3":
+                if(p.job === "製造業" || p.job === "科技業") p.e += 1;
+                if(p.job === "能源業") p.e += 2;
+                break;
+            case "E4":
+                if(p.job === "製造業") p.e += 1;
+                break;
+            case "E5":
+                if(p.job === "製造業") { p.e -= 1; p.pollution += 1; }
+                break;
+            case "E6":
+                if(p.job === "能源業" || p.job === "科技業") p.e += 1;
+                if(p.job === "製造業") { p.e += 2; alert(`📢 提示：請發1張技術卡給 ${p.name} (製造業)！`); }
+                if(p.hasSust) { p.pollution += 1; alertMsg += `⚠️ ${p.name} 因擁有永續營運部門，污染標記+1！\n`; }
+                break;
+            case "E7":
+                if(["製造業", "能源業", "科技業", "金融業"].includes(p.job)) p.e += 1;
+                break;
+            case "E8":
+                if(p.job === "能源業" || p.job === "金融業") { p.e += 1; alert(`📢 提示：請發1張資金卡給 ${p.name}！`); }
+                break;
+            case "E9":
+                if(p.job === "能源業") { p.e -= 1; p.pollution += 1; }
+                if(p.job === "製造業") { p.e += 1; alert(`📢 提示：請發1張技術卡給 ${p.name} (製造業)！`); }
+                break;
+            case "E10":
+                if(p.job === "科技業") { p.e -= 1; p.pollution += 1; }
+                if(p.job === "製造業") { p.e -= 2; p.pollution += 1; }
+                globalPollutionIncrease = true;
+                break;
+            case "S1":
+                if(p.job === "能源業") p.s -= 1;
+                if(p.job === "製造業") p.s -= 2;
+                break;
+            case "S2":
+                if(p.job === "科技業" || p.job === "金融業") p.s -= 2;
+                break;
+            case "S3":
+                if(p.job === "能源業") p.s += 1;
+                if(p.job === "製造業") { p.s += 2; alert(`📢 提示：請發1張人才卡給 ${p.name} (製造業)！`); }
+                break;
+            case "S4":
+                if(p.job === "科技業" || p.job === "製造業") p.s += 1;
+                break;
+            case "S5":
+                if(p.job === "製造業") p.s -= 1;
+                break;
+            case "S6":
+                if(p.job === "科技業" || p.job === "金融業") { p.s += 1; alert(`📢 提示：請發1張人才卡給 ${p.name}！`); }
+                break;
+            case "S7":
+                if(p.job === "科技業" || p.job === "金融業") p.s += 1;
+                break;
+            case "S8":
+                if(p.job === "能源業" || p.job === "製造業") p.s -= 1;
+                if(p.job === "科技業") { p.s += 1; alert(`📢 提示：請發1張技術卡給 ${p.name} (科技業)！`); }
+                break;
+            case "G1":
+                if(["製造業", "能源業", "科技業"].includes(p.job)) p.g += 1;
+                if(p.job === "能源業" || p.job === "科技業") { alert(`📢 提示：請發1張技術卡給 ${p.name}！`); }
+                break;
+            case "G2":
+                if(p.job === "製造業" || p.job === "能源業") p.g -= 1;
+                if(p.job === "金融業") { p.g += 1; alert(`📢 提示：請發1張資金卡給 ${p.name} (金融業)！`); }
+                break;
+            case "G3":
+                if(["製造業", "金融業", "科技業"].includes(p.job)) p.g += 1;
+                if(p.job === "科技業") { alert(`📢 提示：請發1張技術卡給 ${p.name} (科技業)！`); }
+                break;
+            case "G4":
+                if(p.job === "製造業") p.g -= 1;
+                if(p.job === "金融業" || p.job === "科技業") p.g -= 2;
+                break;
+            case "G5":
+                if(p.job === "金融業") p.g -= 1;
+                if(p.job === "科技業") p.g -= 2;
+                break;
+            case "G6":
+                if(p.job === "製造業") p.g += 1;
+                if(p.job === "金融業") { p.g += 1; alert(`📢 提示：請發1張資金卡給 ${p.name} (金融業)！`); }
+                break;
+            case "G7":
+                if(p.job === "金融業" || p.job === "科技業") p.g += 1;
+                break;
+            case "G8":
+                if(["能源業", "科技業", "製造業"].includes(p.job)) p.g += 1;
+                if(p.job === "製造業") { alert(`📢 提示：請發1張人才卡給 ${p.name} (製造業)！`); }
+                break;
+            case "G9":
+                if(p.job === "製造業" || p.job === "金融業") p.g -= 1;
+                if(p.job === "科技業") p.g -= 2;
+                break;
+        }
+    });
+    
+    if (globalPollutionIncrease) {
+        players.forEach(p => {
+            if (!p.eliminated) p.pollution += 1;
+        });
+        alertMsg += `⚠️ 【全體受災】此事件使全場所有存活玩家的「污染標記 +1」！\n`;
+    }
+
+    // 只有在有特殊提示訊息（例如：全體受災、蓋永續部門污染增加）時，才會跳出提示
+    if (alertMsg) {
+        alert(alertMsg);
+    }
+    render();
+}
+
+function calculateEndGame() {
+    let maxPollution = Math.max(...players.map(p => p.pollution));
+    players.forEach(p => { p.eliminated = (maxPollution > 0 && p.pollution === maxPollution); });
+    render(); 
+    
+    let htmlResult = "<h3>【環境崩壞：淘汰名單】</h3>";
+    let highestTotal = -999;
+    let winnerName = "";
+    
+    players.forEach(p => {
+        if(p.eliminated && maxPollution > 0) {
+            htmlResult += `<p>❌ <b>${p.name} (${p.job})</b> 因污染值全場最高 (${p.pollution} 點)，直接<b>淘汰</b>！</p>`;
+        }
+    });
+    
+    htmlResult += "<h3>【綜合貢獻度結算（存活企業）】</h3><ul>";
+    players.forEach(p => {
+        if(!p.eliminated || maxPollution === 0) {
+            let multiplier = 1.0;
+            let level = "無加成 (1.0 倍)";
+            if (p.e >= 3 && p.s >= 3 && p.g >= 3) { multiplier = 1.5; level = "優質永續大獎 (1.5 倍) ✨"; }
+            else if (p.e >= 1 && p.s >= 1 && p.g >= 1) { multiplier = 1.2; level = "基本永續加成 (1.2 倍) 👍"; }
+            
+            let esgSum = p.e + p.s + p.g;
+            let finalScore = Math.round((esgSum * multiplier - p.pollution) * 10) / 10;
+            
+            htmlResult += `<li><b>${p.name} (${p.job})</b>:<br>
+                           公式：(${p.e}E + ${p.s}S + ${p.g}G) × ${multiplier}倍 - ${p.pollution}污染 = <b style="font-size:1.1rem; color:var(--success);">${finalScore} 分</b></li>`;
+                           
+            if(finalScore > highestTotal) { highestTotal = finalScore; winnerName = `${p.name} (${p.job})`; }
+        }
+    });
+    htmlResult += "</ul><h2 style='color:var(--success); text-align:center;'>🏆 最終贏家：" + winnerName + "！</h2>";
+    document.getElementById('resultBody').innerHTML = htmlResult;
+    document.getElementById('resultModal').style.display = 'flex';
+}
+
+function closeModal() { document.getElementById('resultModal').style.display = 'none'; }
+function resetGame() {
+    if(confirm("確定要清空數據開啟全新的一局嗎？")) {
+        players = [
+            { id: 1, name: "玩家 1", job: "金融業", e: 0, s: 0, g: 0, pollution: 0, impact: 0, eliminated: false, hasSust: false },
+            { id: 2, name: "玩家 2", job: "能源業", e: 0, s: 0, g: 0, pollution: 0, impact: 0, eliminated: false, hasSust: false },
+            { id: 3, name: "玩家 3", job: "製造業", e: 0, s: 0, g: 0, pollution: 0, impact: 0, eliminated: false, hasSust: false },
+            { id: 4, name: "玩家 4", job: "科技業", e: 0, s: 0, g: 0, pollution: 0, impact: 0, eliminated: false, hasSust: false }
+        ];
+        pollutionAlertTriggered = false;
+        gameEnded = false;
+        render();
+    }
+}
+render();
+</script>
+</body>
+</html>
